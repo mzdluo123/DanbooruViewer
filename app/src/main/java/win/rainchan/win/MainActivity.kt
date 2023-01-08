@@ -37,10 +37,6 @@ class MainActivity : AppCompatActivity() {
         process = findViewById(R.id.progress)
         preferences = this.getPreferences(Context.MODE_PRIVATE)
         initWebView()
-    }
-
-    override fun onStart() {
-        super.onStart()
         webView.loadUrl(preferences.getString("now_url", "https://danbooru.donmai.us/")!!)
     }
 
