@@ -51,7 +51,9 @@ class MainActivity : AppCompatActivity() {
             builtInZoomControls = true
             displayZoomControls = false
             setSupportZoom(true)
+
         }
+        webView.setBackgroundColor(0);
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(
