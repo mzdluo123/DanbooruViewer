@@ -46,6 +46,11 @@ class MainActivity : AppCompatActivity() {
             javaScriptEnabled = true
             databaseEnabled = true
             loadsImagesAutomatically = true
+            useWideViewPort = true
+            loadWithOverviewMode = true
+            builtInZoomControls = true
+            displayZoomControls = false
+            setSupportZoom(true)
         }
 
         webView.webViewClient = object : WebViewClient() {
