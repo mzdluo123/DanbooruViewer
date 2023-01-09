@@ -12,15 +12,19 @@ import android.util.Log
 import android.view.View
 import android.webkit.*
 import android.widget.ProgressBar
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.ByteArrayInputStream
+import java.io.IOException
 
 
 class MainActivity : AppCompatActivity() {
     lateinit var webView: WebView
     lateinit var process: ProgressBar
+    lateinit var refresh: SwipeRefreshLayout
     private val okHttpClient: OkHttpClient =
         OkHttpClient()
 
@@ -35,8 +39,13 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         webView = findViewById(R.id.webview)
         process = findViewById(R.id.progress)
+        refresh = findViewById(R.id.refresh)
         preferences = this.getPreferences(Context.MODE_PRIVATE)
         initWebView()
+        refresh.setOnRefreshListener {
+            webView.reload()
+            refresh.isRefreshing = false
+        }
         webView.loadUrl(preferences.getString("now_url", "https://danbooru.donmai.us/")!!)
     }
 
@@ -78,7 +87,7 @@ class MainActivity : AppCompatActivity() {
                 view: WebView?,
                 request: WebResourceRequest
             ): Boolean {
-                if (".donmai.us" !in request.url.toString()){
+                if (".donmai.us" !in request.url.toString()) {
                     val i = Intent(Intent.ACTION_VIEW)
                     i.data = request.url
                     startActivity(i)
@@ -124,15 +133,32 @@ class MainActivity : AppCompatActivity() {
             .forEach {
                 builder.addHeader(it.key, it.value)
             }
-        val response = okHttpClient.newCall(builder.build()).execute()
-        val content = response.body!!.string();
-        val mime =
-            "${response.body!!.contentType()!!.type}/${response.body!!.contentType()!!.subtype}"
-        return WebResourceResponse(
-            mime, "utf-8", ByteArrayInputStream(
-                content.toByteArray()
+        try {
+            val response = okHttpClient.newCall(builder.build()).execute()
+            if (response.isSuccessful) {
+                val content = response.body!!.bytes()
+                val mime =
+                    "${response.body!!.contentType()!!.type}/${response.body!!.contentType()!!.subtype}"
+                return WebResourceResponse(
+                    mime, "utf-8", ByteArrayInputStream(content)
+                )
+            }
+            Log.e(TAG, "load error:${response.request.url}")
+            // 我也不知道为什么有个405的请求 但是电脑浏览器没出现过
+            if (response.code != 405) {
+                runOnUiThread {
+                    Toast.makeText(this, "加载失败，状态码:${response.code}", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+        } catch (e: IOException) {
+            return WebResourceResponse(
+                "text/html",
+                "utf-8",
+                ByteArrayInputStream("加载失败,error:$e".toByteArray())
             )
-        )
+        }
+        return WebResourceResponse("text/html", "utf-8", ByteArrayInputStream(ByteArray(0)))
 
     }
 
