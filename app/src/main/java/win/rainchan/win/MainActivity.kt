@@ -46,7 +46,11 @@ class MainActivity : AppCompatActivity() {
             webView.reload()
             refresh.isRefreshing = false
         }
-        webView.loadUrl(preferences.getString("now_url", "https://danbooru.donmai.us/")!!)
+        if (postViewer) {
+            webView.loadUrl(intent.data.toString())
+        } else {
+            webView.loadUrl(preferences.getString("now_url", "https://danbooru.donmai.us/")!!)
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -80,13 +84,28 @@ class MainActivity : AppCompatActivity() {
 
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
                 super.onPageStarted(view, url, favicon)
-                preferences.edit().putString("now_url", url).apply()
+                if (!postViewer) {  // 从其他页面打开的新窗口不覆盖浏览记录
+                    preferences.edit().putString("now_url", url).apply()
+                }
+
             }
 
             override fun shouldOverrideUrlLoading(
                 view: WebView?,
                 request: WebResourceRequest
             ): Boolean {
+                if (request.url.toString()
+                        .startsWith("https://danbooru.donmai.us/posts/")
+                ) { // 是post查看界面
+                    val intent = Intent(baseContext,MainActivity::class.java)
+                    intent.data = request.url
+                    intent.addFlags(
+                        Intent.FLAG_ACTIVITY_NEW_DOCUMENT or
+                                Intent.FLAG_ACTIVITY_RETAIN_IN_RECENTS
+                    )
+                    startActivity(intent)
+                    return true
+                }
                 if (".donmai.us" !in request.url.toString()) {
                     val i = Intent(Intent.ACTION_VIEW)
                     i.data = request.url
@@ -106,26 +125,31 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        webView.setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
+        webView.setDownloadListener { url, _, _, _, _ ->
             val i = Intent(Intent.ACTION_VIEW)
             i.data = Uri.parse(url)
             startActivity(i)
         }
     }
 
+    private val postViewer:Boolean
+    get() = intent.data != null
+
     override fun onBackPressed() {
         if (webView.canGoBack()) {
             webView.goBack()
         } else {
+            if (postViewer){
+                finishAndRemoveTask()
+            }
             finish()
         }
     }
 
     private fun bypass(request: WebResourceRequest): WebResourceResponse {
-        var url = request.url.toString();
+        var url = request.url.toString()
 
         url = url.replace("danbooru.donmai.us", "cdn.donmai.us")
-
         val builder = Request.Builder()
         builder.url(url)
         builder.addHeader("host", "danbooru.donmai.us")
