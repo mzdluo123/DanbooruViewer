@@ -26,7 +26,7 @@ class MainActivity : AppCompatActivity() {
     lateinit var process: ProgressBar
     lateinit var refresh: SwipeRefreshLayout
     private val okHttpClient: OkHttpClient =
-        OkHttpClient()
+        OkHttpClient.Builder().followRedirects(false).build()
 
     private lateinit var preferences: SharedPreferences
 
@@ -97,7 +97,7 @@ class MainActivity : AppCompatActivity() {
                 if (request.url.toString()
                         .startsWith("https://danbooru.donmai.us/posts/")
                 ) { // 是post查看界面
-                    val intent = Intent(baseContext,MainActivity::class.java)
+                    val intent = Intent(baseContext, MainActivity::class.java)
                     intent.data = request.url
                     intent.addFlags(
                         Intent.FLAG_ACTIVITY_NEW_DOCUMENT or
@@ -132,14 +132,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private val postViewer:Boolean
-    get() = intent.data != null
+    private val postViewer: Boolean
+        get() = intent.data != null
 
     override fun onBackPressed() {
         if (webView.canGoBack()) {
             webView.goBack()
         } else {
-            if (postViewer){
+            if (postViewer) {
                 finishAndRemoveTask()
             }
             finish()
@@ -150,6 +150,7 @@ class MainActivity : AppCompatActivity() {
         var url = request.url.toString()
 
         url = url.replace("danbooru.donmai.us", "cdn.donmai.us")
+        Log.d(TAG, "bypassed: $url")
         val builder = Request.Builder()
         builder.url(url)
         builder.addHeader("host", "danbooru.donmai.us")
@@ -161,6 +162,7 @@ class MainActivity : AppCompatActivity() {
             val response = okHttpClient.newCall(builder.build()).execute()
             if (response.isSuccessful) {
                 val content = response.body!!.bytes()
+                response.body!!.close()
                 val mime =
                     "${response.body!!.contentType()!!.type}/${response.body!!.contentType()!!.subtype}"
                 return WebResourceResponse(
@@ -169,11 +171,31 @@ class MainActivity : AppCompatActivity() {
             }
             Log.e(TAG, "load error:${response.request.url}")
             // 我也不知道为什么有个405的请求 但是电脑浏览器没出现过
+
+            if (response.code == 302) { // 手动处理重定向，让重定向后的地址也能绕过
+                runOnUiThread {
+                     webView.loadUrl(response.header("location","https://danbooru.donmai.us")!!)
+                }
+                return WebResourceResponse(
+                    "text/html",
+                    "utf-8",
+                    ByteArrayInputStream("跳转中".toByteArray())
+                )
+
+            }
             if (response.code != 405) {
                 runOnUiThread {
                     Toast.makeText(this, "加载失败，状态码:${response.code}", Toast.LENGTH_SHORT).show()
                 }
             }
+            return WebResourceResponse(
+                "text/html",
+                "utf-8",
+                200,
+                "ok",
+                response.headers.toMap(),
+                ByteArrayInputStream(ByteArray(0))
+            )
 
         } catch (e: IOException) {
             return WebResourceResponse(
@@ -182,7 +204,6 @@ class MainActivity : AppCompatActivity() {
                 ByteArrayInputStream("加载失败,error:$e".toByteArray())
             )
         }
-        return WebResourceResponse("text/html", "utf-8", ByteArrayInputStream(ByteArray(0)))
 
     }
 
