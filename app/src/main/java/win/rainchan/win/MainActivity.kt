@@ -15,7 +15,6 @@ import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.ByteArrayInputStream
 import java.io.IOException
@@ -25,8 +24,6 @@ class MainActivity : AppCompatActivity() {
     lateinit var webView: WebView
     lateinit var process: ProgressBar
     lateinit var refresh: SwipeRefreshLayout
-    private val okHttpClient: OkHttpClient =
-        OkHttpClient.Builder().followRedirects(false).build()
 
     private lateinit var preferences: SharedPreferences
 
@@ -159,14 +156,19 @@ class MainActivity : AppCompatActivity() {
                 builder.addHeader(it.key, it.value)
             }
         try {
-            val response = okHttpClient.newCall(builder.build()).execute()
+            val response = DanbooruApp.INSTANCE.okHttpClient.newCall(builder.build()).execute()
             if (response.isSuccessful) {
                 val content = response.body!!.bytes()
                 response.body!!.close()
                 val mime =
                     "${response.body!!.contentType()!!.type}/${response.body!!.contentType()!!.subtype}"
                 return WebResourceResponse(
-                    mime, "utf-8", ByteArrayInputStream(content)
+                    mime,
+                    "utf-8",
+                    200,
+                    "ok",
+                    response.headers.toMap(),
+                    ByteArrayInputStream(content)
                 )
             }
             Log.e(TAG, "load error:${response.request.url}")
@@ -174,7 +176,7 @@ class MainActivity : AppCompatActivity() {
 
             if (response.code == 302) { // 手动处理重定向，让重定向后的地址也能绕过
                 runOnUiThread {
-                     webView.loadUrl(response.header("location","https://danbooru.donmai.us")!!)
+                    webView.loadUrl(response.header("location", "https://danbooru.donmai.us")!!)
                 }
                 return WebResourceResponse(
                     "text/html",
