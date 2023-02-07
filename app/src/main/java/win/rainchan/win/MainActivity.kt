@@ -76,6 +76,7 @@ class MainActivity : AppCompatActivity() {
                 if ("danbooru.donmai.us" in url) {
                     return bypass(request)
                 }
+
                 return super.shouldInterceptRequest(view, request)
             }
 
