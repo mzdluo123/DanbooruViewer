@@ -1,6 +1,7 @@
 package win.rainchan.win
 
 import android.app.Application
+import okhttp3.Dispatcher
 import okhttp3.OkHttpClient
 
 class DanbooruApp : Application() {
@@ -12,7 +13,15 @@ class DanbooruApp : Application() {
     }
 
     override fun onCreate() {
-        okHttpClient = OkHttpClient.Builder().followRedirects(false).build()
+        val dispatcher = Dispatcher()
+
+        dispatcher.maxRequests = 64
+        dispatcher.maxRequestsPerHost = 16
+        okHttpClient = OkHttpClient.Builder()
+            .followRedirects(false)
+            .retryOnConnectionFailure(true)
+            .dispatcher(dispatcher)
+            .build()
         INSTANCE = this
         super.onCreate()
     }

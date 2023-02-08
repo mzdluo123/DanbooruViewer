@@ -7,17 +7,20 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.webkit.*
 import android.widget.ProgressBar
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import okhttp3.Request
 import java.io.ByteArrayInputStream
 import java.io.IOException
+import java.util.concurrent.CompletableFuture
 
 
 class MainActivity : AppCompatActivity() {
@@ -66,6 +69,7 @@ class MainActivity : AppCompatActivity() {
         webView.setBackgroundColor(0);
 
         webView.webViewClient = object : WebViewClient() {
+            @RequiresApi(Build.VERSION_CODES.N)
             override fun shouldInterceptRequest(
                 view: WebView,
                 request: WebResourceRequest
@@ -75,6 +79,14 @@ class MainActivity : AppCompatActivity() {
 
                 if ("danbooru.donmai.us" in url) {
                     return bypass(request)
+                }
+
+                if ("cdn.donmai.us" in url && "favicon.ico" !in url){ // favicon会出问题
+                    val completableFuture = CompletableFuture<WebResourceResponse>()
+                     MultiThreadDownload(url){rsp, _ ->
+                         completableFuture.complete(rsp)
+                    }.startDownload()
+                    return completableFuture.get()
                 }
 
                 return super.shouldInterceptRequest(view, request)
